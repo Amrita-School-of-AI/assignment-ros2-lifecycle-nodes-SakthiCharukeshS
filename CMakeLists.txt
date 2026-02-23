@@ -10,8 +10,8 @@ find_package(rclcpp REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
 find_package(std_msgs REQUIRED)
 
-# Executable name must be lifecycle_node
-add_executable(lifecycle_node src/lifecycle_node.cpp)
+# FIX: Compile 'lifecycle_sensor.cpp' but name the executable 'lifecycle_node'
+add_executable(lifecycle_node src/lifecycle_sensor.cpp)
 
 ament_target_dependencies(lifecycle_node
   rclcpp

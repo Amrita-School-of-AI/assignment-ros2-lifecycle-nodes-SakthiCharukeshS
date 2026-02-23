@@ -9,10 +9,10 @@
 
 using namespace std::chrono_literals;
 
-class LifecycleTalker : public rclcpp_lifecycle::LifecycleNode
+class LifecycleSensor : public rclcpp_lifecycle::LifecycleNode
 {
 public:
-  explicit LifecycleTalker(const std::string & node_name, bool intra_process_comms = false)
+  explicit LifecycleSensor(const std::string & node_name, bool intra_process_comms = false)
   : rclcpp_lifecycle::LifecycleNode(node_name,
       rclcpp::NodeOptions().use_intra_process_comms(intra_process_comms))
   {
@@ -23,7 +23,7 @@ public:
   {
     pub_ = this->create_publisher<std_msgs::msg::String>("lifecycle_chatter", 10);
     timer_ = this->create_wall_timer(
-      1s, std::bind(&LifecycleTalker::publish_message, this));
+      1s, std::bind(&LifecycleSensor::publish_message, this));
     RCLCPP_INFO(get_logger(), "on_configure() is called.");
     return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
   }
@@ -65,7 +65,7 @@ public:
   void publish_message()
   {
     auto msg = std::make_unique<std_msgs::msg::String>();
-    msg->data = "Lifecycle Hello World: " + std::to_string(count_++);
+    msg->data = "Lifecycle Data: " + std::to_string(count_++);
     if (pub_->is_activated()) {
       RCLCPP_INFO(get_logger(), "Publishing: '%s'", msg->data.c_str());
       pub_->publish(std::move(msg));
@@ -82,9 +82,11 @@ int main(int argc, char * argv[])
 {
   rclcpp::init(argc, argv);
   rclcpp::executors::SingleThreadedExecutor exe;
-  // Node name must be "lifecycle_node"
-  std::shared_ptr<LifecycleTalker> lc_node =
-    std::make_shared<LifecycleTalker>("lifecycle_node");
+  
+  // CRITICAL: Even though the file is 'lifecycle_sensor', the Node Name MUST be 'lifecycle_node'
+  std::shared_ptr<LifecycleSensor> lc_node =
+    std::make_shared<LifecycleSensor>("lifecycle_node");
+
   exe.add_node(lc_node->get_node_base_interface());
   exe.spin();
   rclcpp::shutdown();
