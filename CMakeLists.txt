@@ -10,8 +10,11 @@ find_package(rclcpp REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
 find_package(std_msgs REQUIRED)
 
-# FIX: Compile 'lifecycle_sensor.cpp' but name the executable 'lifecycle_node'
+# --- FIX IS HERE ---
+# We tell CMake to compile 'src/lifecycle_sensor.cpp' 
+# but name the final program 'lifecycle_node' so the test passes.
 add_executable(lifecycle_node src/lifecycle_sensor.cpp)
+# -------------------
 
 ament_target_dependencies(lifecycle_node
   rclcpp
