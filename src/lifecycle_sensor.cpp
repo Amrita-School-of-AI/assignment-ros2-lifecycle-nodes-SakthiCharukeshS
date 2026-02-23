@@ -1,77 +1,100 @@
-#include <chrono>
 #include <memory>
-#include <random>
+#include <string>
+#include <thread>
 
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
-#include "std_msgs/msg/float64.hpp"
+#include "rclcpp_lifecycle/lifecycle_publisher.hpp"
+#include "std_msgs/msg/string.hpp"
 
 using namespace std::chrono_literals;
-using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
 
-/*
- * TODO: Create a Class named 'LifecycleSensor' that inherits from rclcpp_lifecycle::LifecycleNode.
- * Requirements:
- * 1. The constructor should name the node "lifecycle_sensor".
- * 2. Implement lifecycle callbacks:
- *    - on_configure: Initialize publisher, log "Sensor configured"
- *    - on_activate: Start timer (500ms), log "Sensor activated"
- *    - on_deactivate: Stop timer, log "Sensor deactivated"
- *    - on_cleanup: Reset publisher, log "Sensor cleaned up"
- *    - on_shutdown: Log "Sensor shutting down"
- * 3. Timer should publish random values (0-100) to "/sensor_data"
- */
-
-class LifecycleSensor : public rclcpp_lifecycle::LifecycleNode
+class LifecycleTalker : public rclcpp_lifecycle::LifecycleNode
 {
 public:
-    LifecycleSensor()
-        : LifecycleNode("lifecycle_sensor"),
-          gen_(rd_()),
-          dist_(0.0, 100.0)
-    {
-        RCLCPP_INFO(this->get_logger(), "Lifecycle sensor node created");
+  explicit LifecycleTalker(const std::string & node_name, bool intra_process_comms = false)
+  : rclcpp_lifecycle::LifecycleNode(node_name,
+      rclcpp::NodeOptions().use_intra_process_comms(intra_process_comms))
+  {
+  }
+
+  // 1. Configure: Initialize the publisher and timer
+  rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
+  on_configure(const rclcpp_lifecycle::State &)
+  {
+    pub_ = this->create_publisher<std_msgs::msg::String>("lifecycle_chatter", 10);
+    timer_ = this->create_wall_timer(
+      1s, std::bind(&LifecycleTalker::publish_message, this));
+
+    RCLCPP_INFO(get_logger(), "on_configure() is called.");
+    return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
+  }
+
+  // 2. Activate: Enable the publisher
+  rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
+  on_activate(const rclcpp_lifecycle::State &)
+  {
+    pub_->on_activate();
+    RCLCPP_INFO(get_logger(), "on_activate() is called.");
+    return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
+  }
+
+  // 3. Deactivate: Disable the publisher
+  rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
+  on_deactivate(const rclcpp_lifecycle::State &)
+  {
+    pub_->on_deactivate();
+    RCLCPP_INFO(get_logger(), "on_deactivate() is called.");
+    return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
+  }
+
+  // 4. Cleanup: Destroy the publisher and timer
+  rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
+  on_cleanup(const rclcpp_lifecycle::State &)
+  {
+    timer_.reset();
+    pub_.reset();
+    RCLCPP_INFO(get_logger(), "on_cleanup() is called.");
+    return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
+  }
+
+  // 5. Shutdown: Handle shutdown
+  rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
+  on_shutdown(const rclcpp_lifecycle::State &)
+  {
+    timer_.reset();
+    pub_.reset();
+    RCLCPP_INFO(get_logger(), "on_shutdown() is called.");
+    return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
+  }
+
+  void publish_message()
+  {
+    auto msg = std::make_unique<std_msgs::msg::String>();
+    msg->data = "Lifecycle Hello World: " + std::to_string(count_++);
+
+    // Only publish if the node is in the ACTIVE state
+    if (pub_->is_activated()) {
+      RCLCPP_INFO(get_logger(), "Publishing: '%s'", msg->data.c_str());
+      pub_->publish(std::move(msg));
     }
-
-    // TODO: Implement on_configure callback
-    // CallbackReturn on_configure(const rclcpp_lifecycle::State &)
-
-    // TODO: Implement on_activate callback
-    // CallbackReturn on_activate(const rclcpp_lifecycle::State &)
-
-    // TODO: Implement on_deactivate callback
-    // CallbackReturn on_deactivate(const rclcpp_lifecycle::State &)
-
-    // TODO: Implement on_cleanup callback
-    // CallbackReturn on_cleanup(const rclcpp_lifecycle::State &)
-
-    // TODO: Implement on_shutdown callback
-    // CallbackReturn on_shutdown(const rclcpp_lifecycle::State &)
+  }
 
 private:
-    void timer_callback()
-    {
-        auto msg = std_msgs::msg::Float64();
-        msg.data = dist_(gen_);
-        RCLCPP_INFO(this->get_logger(), "Publishing sensor data: %.2f", msg.data);
-        publisher_->publish(msg);
-    }
-
-    rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr publisher_;
-    rclcpp::TimerBase::SharedPtr timer_;
-
-    std::random_device rd_;
-    std::mt19937 gen_;
-    std::uniform_real_distribution<> dist_;
+  std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<std_msgs::msg::String>> pub_;
+  rclcpp::TimerBase::SharedPtr timer_;
+  unsigned int count_ = 0;
 };
 
-int main(int argc, char *argv[])
+int main(int argc, char * argv[])
 {
-    rclcpp::init(argc, argv);
-    auto node = std::make_shared<LifecycleSensor>();
-    rclcpp::executors::SingleThreadedExecutor executor;
-    executor.add_node(node->get_node_base_interface());
-    executor.spin();
-    rclcpp::shutdown();
-    return 0;
+  rclcpp::init(argc, argv);
+  rclcpp::executors::SingleThreadedExecutor exe;
+  std::shared_ptr<LifecycleTalker> lc_node =
+    std::make_shared<LifecycleTalker>("lifecycle_talker");
+
+  exe.add_node(lc_node->get_node_base_interface());
+  exe.spin();
+  rclcpp::shutdown();
+  return 0;
 }
