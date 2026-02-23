@@ -5,25 +5,22 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-# 1. Find Dependencies (Crucial: rclcpp_lifecycle)
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
 find_package(std_msgs REQUIRED)
 
-# 2. Add Executable
-add_executable(lifecycle_talker src/lifecycle_node.cpp)
+# FIX: Executable name is now "lifecycle_node"
+add_executable(lifecycle_node src/lifecycle_node.cpp)
 
-# 3. Link Libraries
-ament_target_dependencies(lifecycle_talker
+ament_target_dependencies(lifecycle_node
   rclcpp
   rclcpp_lifecycle
   std_msgs
 )
 
-# 4. Install
 install(TARGETS
-  lifecycle_talker
+  lifecycle_node
   DESTINATION lib/${PROJECT_NAME}
 )
 
